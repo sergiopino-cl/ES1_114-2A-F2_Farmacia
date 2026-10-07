@@ -60,11 +60,13 @@ Ademas se utilizó I.A. para realizar las tareas repetitivas y tediosas de la pr
 
 En nuestro caso NO dejamos a la I.A. avanzar totalmente sola para ir entendiendo la programación y la sintaxis de Python.
 
+Finalmente le pedimos a AGY que revisara y nos diera recomendaciones para poder avanzar con el módulo y las clases de ventas.
+
 ----
 NOTAS Para el desarrollador
 ----
 
--- Para freezear los requerimientos:
+-- Para documentar los requerimientos:
 
 python -m pip freeze > requirements.txt
 

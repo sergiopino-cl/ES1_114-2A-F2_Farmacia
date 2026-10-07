@@ -1,0 +1,13 @@
+En la farmacia manejamos tres tipos de medicamento que se venden distinto: los con receta simple, los sin receta (de venta libre), y los controlados, que exigen retener la receta y registrar el número al momento de vender. El sistema debe saber aplicar la regla de venta correcta según el tipo de medicamento.
+
+Trabajamos con dos roles: el químico farmacéutico, que es el único que puede autorizar la venta de un medicamento controlado, y el vendedor, que vende medicamentos sin receta pero no puede vender controlados.
+
+Al vender pedimos el RUT del cliente y, si corresponde, el número de la receta médica, y necesitamos que el sistema valide esos formatos.
+
+Una venta normalmente incluye varios medicamentos distintos con su cantidad, y todo eso debe quedar como detalle de una misma venta.
+
+No queremos que se pueda vender un medicamento controlado sin una receta válida registrada, ni vender un medicamento que ya está vencido aunque todavía figure en el stock.
+
+Los medicamentos que importamos los cotizamos según el dólar del día.
+
+Quedo atento a sus dudas pero la propuesta final debe ser subida al espacio habilitado en el Ambiente de Aprendizaje.

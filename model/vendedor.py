@@ -1,33 +1,23 @@
-class Vendedor:
-    def __init__(self, rut: str, nombre: str, esfarmaceutico: bool):
-        self._rut = rut
-        self._nombre = nombre
-        self._esfarmaceutico = esfarmaceutico
+from model.persona import Persona
+
+class Vendedor(Persona):
+    """
+    Representa a un vendedor en la farmacia.
+    Hereda atributos comunes (rut, nombre) y métodos de la clase base Persona.
+    Extiende la funcionalidad con la distinción de si es Químico Farmacéutico.
+    """
+    def __init__(self, rut: str, nombre: str, esfarmaceutico: bool = False):
+        super().__init__(rut, nombre)
+        self._esfarmaceutico = bool(esfarmaceutico)
 
     @property
-    def rut(self):
-        return self._rut
-
-    @rut.setter
-    def rut(self, value):
-        self._rut = value
-
-    @property
-    def nombre(self):
-        return self._nombre
-
-    @nombre.setter
-    def nombre(self, value):
-        self._nombre = value
-
-    @property
-    def esfarmaceutico(self):
+    def esfarmaceutico(self) -> bool:
         return self._esfarmaceutico
 
     @esfarmaceutico.setter
-    def esfarmaceutico(self, value):
+    def esfarmaceutico(self, value: bool) -> None:
         self._esfarmaceutico = bool(value)
 
-    def __str__(self):
+    def __str__(self) -> str:
         tipo = "Farmacéutico" if self._esfarmaceutico else "Vendedor General"
-        return f"{self._nombre} ({tipo}) - RUT: {self._rut}"
+        return f"{self.nombre} ({tipo}) - RUT: {self.rut}"
