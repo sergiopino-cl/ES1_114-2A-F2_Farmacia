@@ -35,3 +35,26 @@ Usuario -> Vendedor
         -> Cliente
 
 Medicamento -> 
+
+-- Para freezear los requerimientos:
+
+python -m pip freeze > requirements.txt
+
+-- Para instalar los requerimientos:
+
+python -m pip install -r requirements.txt
+
+Para ejecutar aplicacion Web con streamlit:
+
+python3 -m streamlit run main.py
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.1.7:8501
+
+Para subir los cambios a GitHub:
+
+git add .
+git commit -m "Comentario u observacion"
+git push -u origin main
+

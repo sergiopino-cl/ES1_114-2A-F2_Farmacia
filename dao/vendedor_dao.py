@@ -6,7 +6,7 @@ import pandas as pd
 class VendedorDAO(DAO):
     def __init__(self, conexion):
         self.conexion = conexion
-        self.cursor = conexion.cursos()
+        self.cursor = conexion.cursor()
     
     def crear_tabla(self):
         """Crea la tabla vendedor si no existe."""
