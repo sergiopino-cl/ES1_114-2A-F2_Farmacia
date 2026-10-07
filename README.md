@@ -1,12 +1,17 @@
-# Farmacia
+# **Farmacia**
 
 Repositorio para la asignatura de Programación Orientada a Objetos Seguro.
 
 **Profesor:** Michael Arjel
+
 **Institución:** Inacap
+
 **Carrera:** Analista programador
+
 **Sede:** Puente alto
+
 **Codigo:** TI3V21
+
 **Fecha:** 07 de octubre del 2026
 
 **Alumnos:**
