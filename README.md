@@ -32,7 +32,7 @@ python -m pip install -r requirements.txt
 
 **Para ejecutar aplicacion Web con streamlit**:
 
-**python3 -m streamlit run main.py-**
+**python3 -m streamlit run main.py**
 
 
   You can now view your Streamlit app in your browser.

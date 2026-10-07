@@ -1,14 +1,15 @@
 class Medicamento:
     def __init__(self, nombre: str, precio_venta: int, precio_compra_usd: float, 
-                 precio_compra_peso: int, fecha_ultima_compra: str, restringido: bool, stock: int, codigo: int = None ):
+                 precio_compra_peso: int, fecha_ultima_compra: str, restringido: bool, stock: int = 0, codigo: int = None ):
         self._codigo = codigo  # Es opcional al instanciar porque SQLite lo genera automáticamente (INTEGER PRIMARY KEY)
         self._nombre = nombre
         self._precio_venta = precio_venta
         self._precio_compra_usd = precio_compra_usd
         self._precio_compra_peso = precio_compra_peso
         self._fecha_ultima_compra = fecha_ultima_compra
-        self._restringido = restringido
         self._stock = stock
+        self._restringido = restringido
+        
 
     # Getters y Setters
     @property
@@ -73,7 +74,7 @@ class Medicamento:
 
     @stock.setter
     def stock(self, value):
-        self._stock = value
+        self._stock = int(value)
 
     def __str__(self):
         receta = "Requiere Receta" if self._restringido else "Venta Libre"
