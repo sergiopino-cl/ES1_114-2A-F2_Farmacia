@@ -1,6 +1,9 @@
 # **Farmacia**
 
+
 Repositorio para la asignatura de Programación Orientada a Objetos Seguro.
+
+https://github.com/sergiopino-cl/ES1_114-2A-F2_Farmacia
 
 **Profesor:** Michael Arjel
 
@@ -68,5 +71,7 @@ python -m pip freeze > requirements.txt
 -- Para subir los cambios a GitHub:
 
 git add .
+
 git commit -m "Etapa, comentario u observacion"
+
 git push -u origin main
