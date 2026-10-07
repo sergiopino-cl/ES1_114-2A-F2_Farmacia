@@ -1,0 +1,188 @@
+================================================================================
+INFORME DE ANÁLISIS DE CÓDIGO Y ARQUITECTURA: MÓDULO DE VENTAS
+ASIGNATURA: Programación Orientada a Objetos Segura - Informe 2
+PROYECTO: Sistema de Ventas de Farmacia (ES1_114-2A-F2_Farmacia)
+FECHA DE ANÁLISIS: 07 de octubre de 2026
+================================================================================
+
+1. RESUMEN EJECUTIVO
+--------------------------------------------------------------------------------
+Se realizó una auditoría y revisión estática de código sobre las clases del módulo 
+de ventas ubicadas en las carpetas `model/` y `dao/`, junto con su interacción con 
+las entidades asociadas (`Medicamento`, `Cliente`, `Vendedor`, `RecetaMedica`) y la 
+interfaz gráfica principal (`main.py`).
+
+Se identificaron fallos funcionales críticos (como la falta de control de stock y 
+la no validación del rol de Químico Farmacéutico en medicamentos controlados), 
+errores de diseño en el modelo orientado a objetos (violación de encapsulamiento, 
+atributos inexistentes en tiempo de ejecución), inconsistencias en la base de datos 
+(cálculo de totales vs subtotales) y un error tipográfico en `main.py` que impide 
+abrir la interfaz de ventas.
+
+
+2. ARCHIVOS AUDITADOS
+--------------------------------------------------------------------------------
+- model/venta.py               (Clase Venta)
+- model/detalle_venta.py       (Clase DetalleVenta)
+- dao/venta_dao.py             (Clase VentaDAO)
+- dao/dao.py                   (Clase base DAO)
+- model/medicamento.py         (Clase Medicamento - Interacción con ventas)
+- model/vendedor.py            (Clase Vendedor - Interacción con permisos)
+- model/cliente.py             (Clase Cliente)
+- model/receta_medica.py       (Clase RecetaMedica)
+- main.py                      (Flujo 'Realizar Venta' y orquestación)
+- README.md                    (Requisitos de la evaluación)
+
+
+3. HALLAZGOS Y PROBLEMAS DETECTADOS
+--------------------------------------------------------------------------------
+
+3.1. PROBLEMAS CRÍTICOS (LÓGICA DE NEGOCIO Y REQUISITOS DEL INFORME)
+--------------------------------------------------------------------
+[CRÍTICO 1] Falta de control y descuento de Stock al vender
+- Ubicación: dao/venta_dao.py (guardar_venta), model/venta.py (validar_venta).
+- Descripción: Al realizar una venta, el método `guardar_venta()` registra el 
+  encabezado en `venta` y las líneas en `detalle_venta`, pero NUNCA ejecuta una 
+  sentencia SQL para restar el stock vendido de la tabla `medicamento` 
+  (`UPDATE medicamento SET stock = stock - ? WHERE codigo = ?`).
+- Impacto: El inventario nunca se actualiza; además, `validar_venta()` no valida 
+  si la cantidad solicitada excede el stock disponible, permitiendo vender 
+  productos sin existencias.
+
+[CRÍTICO 2] Omisión del permiso de Químico Farmacéutico en medicamentos controlados
+- Ubicación: model/venta.py (validar_venta), main.py.
+- Requisito del Informe (README.md): "El Químico Farmacéutico es el único 
+  autorizado para aprobar la venta de medicamentos controlados".
+- Descripción: `Venta.validar_venta()` solo verifica si hay receta médica cuando el 
+  medicamento es restringido (`restringido = True`). En ningún momento valida si el 
+  vendedor asociado a la venta es Químico Farmacéutico (`esfarmaceutico = True`). 
+  De hecho, `Venta` solo recibe un string `vendedor_rut: str`, perdiendo toda la 
+  información del objeto `Vendedor`.
+- Impacto: Cualquier vendedor común puede vender medicamentos controlados sin 
+  supervisión farmacéutica, violando un requisito explícito de seguridad.
+
+[CRÍTICO 3] Referencia a atributos inexistentes en tiempo de ejecución
+- Ubicación: model/venta.py (calcular_total, líneas 48-49).
+- Código actual:
+    if getattr(detalle.medicamento, 'es_importado', False):
+        precio = detalle.medicamento.precio_base_usd * tasa_dolar
+- Descripción: La clase `Medicamento` en `model/medicamento.py` NO posee el 
+  atributo `es_importado` ni el atributo `precio_base_usd` (posee `precio_compra_usd` 
+  y `precio_compra_peso`). Si un objeto tuviese `es_importado = True`, intentar 
+  acceder a `precio_base_usd` provocaría un `AttributeError`.
+- Además, `precio_compra_usd` corresponde al costo de compra, no al precio de venta.
+
+[CRÍTICO 4] Error tipográfico en 'main.py' bloquea la pantalla de Ventas
+- Ubicación: main.py (líneas 26 y 142).
+- Descripción: El menú lateral define la opción "Realizar Venta", pero la 
+  estructura condicional evalúa `elif opcion == "Ralizar Venta":` (falta la letra 'e').
+- Impacto: El usuario hace clic en "Realizar Venta" en la aplicación Streamlit y 
+  la pantalla queda vacía porque nunca entra en el bloque correspondiente.
+
+
+3.2. PROBLEMAS DE DISEÑO ORIENTADO A OBJETOS Y SEGURIDAD (POO)
+--------------------------------------------------------------
+[MEDIO 1] Falta de validación en constructores (Inseguridad en modelos)
+- Ubicación: model/detalle_venta.py (`__init__`), model/venta.py (`__init__`).
+- Descripción:
+  * `DetalleVenta.__init__`: Acepta cantidades `<= 0`, precios negativos, o un 
+    medicamento `None`. No valida tipos ni rangos.
+  * `Venta.__init__`: Acepta fechas en blanco o con formato inválido; recibe un 
+    `vendedor_rut: str` plano en vez de una instancia de `Vendedor`.
+
+[MEDIO 2] Violación de Encapsulamiento y Ley de Demeter
+- Ubicación: model/venta.py (calcular_total).
+- Descripción: `Venta.calcular_total()` recalcula el subtotal accediendo a las 
+  propiedades internas del medicamento del detalle en lugar de delegar en 
+  `detalle.calcular_subtotal()`.
+- Exposición de listas mutables: En `Venta.detalles`, el getter retorna directamente 
+  la lista mutable interna `self._detalles`. Cualquier cliente externo puede 
+  hacer `venta.detalles.clear()` o `.append(...)` sin pasar por los métodos 
+  controlados de la clase.
+
+[MEDIO 3] Creación de clases 'Mock' en lugar de usar el dominio en 'main.py'
+- Ubicación: main.py (líneas 187-193).
+- Descripción: Al agregar al carrito, en vez de usar la clase `Medicamento` o 
+  el método `medicamento_dao.obtener_por_codigo()`, se crea una clase ad-hoc:
+    class ObjMed: pass
+    m = ObjMed()
+    ...
+- Impacto: Destruye el diseño de tipos y el modelo de dominio en tiempo de ejecución.
+
+
+3.3. PROBLEMAS EN LA CAPA DE DATOS (DAO)
+----------------------------------------
+[MEDIO 4] VentaDAO no hereda de la clase base DAO
+- Ubicación: dao/venta_dao.py.
+- Descripción: Existe `dao/dao.py` (`class DAO`), pero `VentaDAO` no hereda de ella 
+  (a diferencia de `VendedorDAO`). Esto rompe la jerarquía de clases del proyecto.
+
+[MEDIO 5] No sincroniza el ID autogenerado con la instancia de Venta
+- Ubicación: dao/venta_dao.py (guardar_venta, línea 77).
+- Descripción: Se obtiene `venta_id = self.cursor.lastrowid`, pero nunca se actualiza 
+  `venta._id = venta_id`. Quien invoque el método se queda con un objeto desvinculado 
+  del ID de la base de datos.
+
+[MEDIO 6] Discrepancia entre 'total' y 'subtotal' en base de datos
+- Ubicación: dao/venta_dao.py (guardar_venta).
+- Descripción: En la tabla `venta` se almacena `venta.calcular_total(tasa_dolar)`, 
+  mientras que en `detalle_venta` se almacena `d.calcular_subtotal()` en base a 
+  `precio_unitario`. Si hubiese conversión a dólares, los subtotales de las líneas 
+  no sumarán el total de la cabecera.
+
+[BAJO 1] Sobrescritura peligrosa con `INSERT OR REPLACE` en Cliente
+- Ubicación: dao/venta_dao.py (guardar_venta, línea 58).
+- Descripción: Si se escribe el RUT de un cliente existente con un nombre erróneo, 
+  `INSERT OR REPLACE` borra el registro previo y lo reemplaza con los nuevos datos.
+
+[BAJO 2] Falta de métodos de lectura detallada en VentaDAO
+- Ubicación: dao/venta_dao.py (obtener_todas).
+- Descripción: Solo entrega un `DataFrame` con encabezados de venta. No existen 
+  métodos para obtener los detalles de una venta, consultar por ID, ni reconstruir 
+  objetos de dominio `Venta`.
+
+
+================================================================================
+4. RECOMENDACIONES Y PLAN DE ACCIÓN
+================================================================================
+
+1. Corregir inmediatamente el typo en `main.py`:
+   - Cambiar `elif opcion == "Ralizar Venta":` por `elif opcion == "Realizar Venta":`.
+
+2. Incorporar el descuento de Stock en `VentaDAO.guardar_venta()`:
+   - Validar que cada medicamento cuente con stock suficiente (`stock >= cantidad`).
+   - Dentro de la misma transacción, descontar el stock:
+     `UPDATE medicamento SET stock = stock - ? WHERE codigo = ?`
+   - Si no hay stock suficiente, hacer rollback y rechazar la venta.
+
+3. Refactorizar `Venta` para recibir el objeto `Vendedor`:
+   - En `Venta.__init__`: recibir `vendedor: Vendedor` en lugar de `vendedor_rut: str`.
+   - En `Venta.validar_venta()`: validar que si algún producto es restringido/controlado, 
+     el vendedor debe cumplir: `if not self._vendedor.esfarmaceutico: return False`.
+
+4. Fortalecer `DetalleVenta` con validaciones defensivas:
+   - En `__init__`, validar que `cantidad > 0`, `precio_unitario >= 0` y que 
+     `medicamento` sea un objeto válido.
+   - Centralizar el cálculo de subtotal únicamente en `DetalleVenta.calcular_subtotal()`.
+   - Hacer que `Venta.calcular_total()` sume directamente los subtotales:
+     `return sum(d.calcular_subtotal() for d in self._detalles)`
+
+5. Hacer que `VentaDAO` herede de `DAO`:
+   ```python
+   from dao.dao import DAO
+
+   class VentaDAO(DAO):
+       def __init__(self, conexion):
+           super().__init__(conexion)
+   ```
+
+6. Actualizar el ID de la venta tras guardarla:
+   - En `Venta`: agregar una propiedad o método setter para `id`.
+   - En `VentaDAO.guardar_venta`: asignar `venta.id = venta_id`.
+
+7. Eliminar la clase temporal `ObjMed` en `main.py`:
+   - Usar instancias legítimas de `Medicamento` obtenidas mediante `MedicamentoDAO`.
+
+================================================================================
+FIN DEL INFORME
+================================================================================
