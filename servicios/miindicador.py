@@ -1,7 +1,8 @@
 import requests
 
 class MiIndicador:
-    BASE_URL ="https://mindicador.cl/api/"
+    # BASE_URL ="https://mindicador.cl/api/"
+    BASE_URL ="https://findic.cl/api/"
 
     def __init__(self, timeout=5):
         self.__timeout=timeout

@@ -9,7 +9,6 @@ class Medicamento:
         self._fecha_ultima_compra = fecha_ultima_compra
         self._stock = stock
         self._restringido = restringido
-        
 
     # Getters y Setters
     @property
