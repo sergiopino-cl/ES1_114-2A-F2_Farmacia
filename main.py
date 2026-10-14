@@ -60,16 +60,13 @@ def main():
                 editar_medicamento( valor_dolar, conexion )
 
             elif opcion == "Realizar Venta":
-                st.subheader("🛒 Venta Simple")
+                st.subheader("🛒 Venta de Medicamentos")
 
                 # Inicializar carrito en session_state
                 if "carrito" not in st.session_state:
                     st.session_state.carrito = []
 
                 # Cargar servicios y DAOs
-                indicador_service = MiIndicador()
-                valor_dolar = indicador_service.obtener_valor("dolar") or 950.0
-
                 med_dao = MedicamentoDAO(conexion)
                 vendedor_dao = VendedorDAO(conexion)
                 venta_dao = VentaDAO(conexion)
@@ -82,11 +79,18 @@ def main():
                     client_nombre = st.text_input("Nombre Cliente *")
                 with col2:
                     df_vendedores = vendedor_dao.obtener_todos()
-                    vendedor_rut = st.selectbox(
-                        "Vendedor *", 
-                        options=df_vendedores['rut'].tolist() if not df_vendedores.empty else [""],
-                        format_func=lambda x: f"RUT: {x}"
-                    )
+                    if not df_vendedores.empty:
+                        vendedores_dict = dict(zip(df_vendedores['rut'], df_vendedores['nombre']))
+                        
+                        # La variable 'vendedor_rut' guarda automáticamente el RUT seleccionado
+                        vendedor_rut = st.selectbox(
+                            "Vendedor *", 
+                            options=df_vendedores['rut'].tolist(),
+                            format_func=lambda x: f"{vendedores_dict.get(x, '')} - RUT: {x}"
+                        )
+                    else:
+                        vendedor_rut = ""
+                        st.warning("No hay vendedores disponibles para registrar la venta.")
 
                 st.divider()
 
