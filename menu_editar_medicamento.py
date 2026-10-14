@@ -1,18 +1,12 @@
 import streamlit as st
 import pandas as pd
+import sqlite3
+from datetime import datetime, date
+import sys
 from conectar import crear_conexion
 from servicios.miindicador import MiIndicador
-from dao.vendedor_dao import VendedorDAO
-from model.vendedor import Vendedor
-from model.medicamento import Medicamento
-from datetime import date
 from dao.medicamento_dao import MedicamentoDAO
-from dao.venta_dao import VentaDAO
-from model.cliente import Cliente
-from model.receta_medica import RecetaMedica
-from model.detalle_venta import DetalleVenta
-from model.venta import Venta
-import sys
+from model.medicamento import Medicamento
 
 
 # opcion == "Editar Medicamento"

@@ -1,10 +1,10 @@
 import pandas as pd
+from dao.dao import DAO
 from model.medicamento import Medicamento
 
-class MedicamentoDAO:
+class MedicamentoDAO(DAO):
     def __init__(self, conexion):
-        self.conexion = conexion
-        self.cursor = conexion.cursor()
+        super().__init__(conexion)
 
     def crear_tabla(self):
         """Crea la tabla medicamento si no existe."""
@@ -89,7 +89,7 @@ class MedicamentoDAO:
         """Busca un medicamento específico por su código de clave primaria."""
         try:
             self.cursor.execute("SELECT * FROM medicamento WHERE codigo = ?;", (codigo,))
-            return self.cursor.fetchone()
+            row = self.cursor.fetchone()
             if row:
                 return Medicamento(
                     codigo=row[0],

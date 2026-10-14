@@ -53,6 +53,27 @@ class VendedorDAO(DAO):
             print(f"Error al buscar vendedor: {e}")
             return None
 
+    def obtener_por_rut_objeto(self, rut: str):
+        """Busca un vendedor por RUT y retorna una instancia del modelo Vendedor."""
+        try:
+            fila = self.obtener_por_rut(rut)
+            if fila:
+                return Vendedor(rut=str(fila[0]), nombre=str(fila[1]), esfarmaceutico=bool(fila[2]))
+            return None
+        except Exception as e:
+            print(f"Error al obtener objeto vendedor: {e}")
+            return None
+
+    def obtener_todos_objetos(self):
+        """Retorna una lista de instancias del modelo Vendedor."""
+        try:
+            self.cursor.execute("SELECT rut, nombre, esfarmaceutico FROM vendedor;")
+            filas = self.cursor.fetchall()
+            return [Vendedor(rut=str(r[0]), nombre=str(r[1]), esfarmaceutico=bool(r[2])) for r in filas]
+        except Exception as e:
+            print(f"Error al obtener objetos vendedores: {e}")
+            return []
+
     def actualizar(self, rut, nombre, esfarmaceutico):
         """Actualiza los datos de un vendedor existente."""
         try:

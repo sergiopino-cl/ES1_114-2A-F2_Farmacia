@@ -16,11 +16,11 @@ import sys
 
 # Opciones de menu
 from menu_editar_medicamento import editar_medicamento
+from menu_ver_ventas import ver_ventas
 
 def main():
-
+    st.set_page_config(page_title='Farmacia', layout='wide')
     st.title("Aplicacion venta de farmacia")
-    st.set_page_config(page_title='Farmacia')
     st.sidebar.title("Aplicacion venta de farmacia")
     
     # Menú lateral ampliado
@@ -28,7 +28,7 @@ def main():
         "Selecciona una opción",
         ["Ver Medicamentos", "Registrar Vendedor", 
          "Registrar Medicamento", "Editar Medicamento", 
-         "Realizar Venta", "Opcion de prueba"]
+         "Realizar Venta", "Ver Ventas Realizadas", "Opcion de prueba"]
     )
 
     try:
@@ -66,7 +66,7 @@ def main():
                 if "carrito" not in st.session_state:
                     st.session_state.carrito = []
 
-                # Cargar servicios y DAOs
+                # Cargar DAOs
                 med_dao = MedicamentoDAO(conexion)
                 vendedor_dao = VendedorDAO(conexion)
                 venta_dao = VentaDAO(conexion)
@@ -75,22 +75,19 @@ def main():
                 # 1. Datos Generales de la Venta
                 col1, col2 = st.columns(2)
                 with col1:
-                    client_rut = st.text_input("RUT Cliente *")
-                    client_nombre = st.text_input("Nombre Cliente *")
+                    client_rut = st.text_input("RUT Cliente *", placeholder="Ej: 12.345.678-9 o 1-9")
+                    client_nombre = st.text_input("Nombre Cliente *", placeholder="Ej: Juan Pérez")
                 with col2:
-                    df_vendedores = vendedor_dao.obtener_todos()
-                    if not df_vendedores.empty:
-                        vendedores_dict = dict(zip(df_vendedores['rut'], df_vendedores['nombre']))
-                        
-                        # La variable 'vendedor_rut' guarda automáticamente el RUT seleccionado
-                        vendedor_rut = st.selectbox(
+                    lista_vendedores = vendedor_dao.obtener_todos_objetos()
+                    if lista_vendedores:
+                        vendedor_sel = st.selectbox(
                             "Vendedor *", 
-                            options=df_vendedores['rut'].tolist(),
-                            format_func=lambda x: f"{vendedores_dict.get(x, '')} - RUT: {x}"
+                            options=lista_vendedores,
+                            format_func=lambda v: f"{v.nombre} ({'Químico Farmacéutico' if v.esfarmaceutico else 'Vendedor General'}) - RUT: {v.rut}"
                         )
                     else:
-                        vendedor_rut = ""
-                        st.warning("No hay vendedores disponibles para registrar la venta.")
+                        vendedor_sel = None
+                        st.warning("No hay vendedores disponibles registrados en el sistema.")
 
                 st.divider()
 
@@ -98,27 +95,58 @@ def main():
                 st.markdown("##### Agregar Productos al Carrito")
                 df_meds = med_dao.obtener_todos()
                 if not df_meds.empty:
+                    # Buscamos medicamentos activos
                     med_id = st.selectbox(
                         "Seleccionar Medicamento", 
                         options=df_meds['codigo'].tolist(),
-                        format_func=lambda x: f"{df_meds[df_meds['codigo']==x]['nombre'].values[0]} - ${df_meds[df_meds['codigo']==x]['precio_venta'].values[0]} CLP"
+                        format_func=lambda x: (
+                            f"{df_meds[df_meds['codigo']==x]['nombre'].values[0]} - "
+                            f"${df_meds[df_meds['codigo']==x]['precio_venta'].values[0]:,.0f} CLP "
+                            f"(Stock: {df_meds[df_meds['codigo']==x]['stock'].values[0]}) "
+                            f"{'[Controlado/Receta]' if df_meds[df_meds['codigo']==x]['restringido'].values[0] else '[Venta Libre]'}"
+                        )
                     )
-                    cantidad = st.number_input("Cantidad", min_value=1, step=1, value=1)
                     
-                    if st.button("➕ Agregar al Carrito"):
-                        med_sel = df_meds[df_meds['codigo'] == med_id].iloc[0]
-                        # Creamos un objeto rápido para el carrito
-                        class ObjMed: pass
-                        m = ObjMed()
-                        m.codigo = int(med_sel['codigo'])
-                        m.nombre = str(med_sel['nombre'])
-                        m.restringido = bool(med_sel['restringido'])
-                        
-                        detalle = DetalleVenta(m, int(cantidad), float(med_sel['precio_venta']))
-                        st.session_state.carrito.append(detalle)
-                        st.success(f"Agregado: {m.nombre} x{cantidad}")
+                    fila_med = df_meds[df_meds['codigo'] == med_id].iloc[0]
+                    stock_disponible = int(fila_med['stock'])
+                    
+                    col_q1, col_q2 = st.columns([2, 1])
+                    with col_q1:
+                        cantidad = st.number_input(
+                            "Cantidad", 
+                            min_value=1, 
+                            max_value=max(1, stock_disponible), 
+                            step=1, 
+                            value=1,
+                            disabled=(stock_disponible <= 0)
+                        )
+                    with col_q2:
+                        st.write("")
+                        st.write("")
+                        btn_agregar = st.button("➕ Agregar al Carrito", disabled=(stock_disponible <= 0))
 
-                # Display del Carrito
+                    if stock_disponible <= 0:
+                        st.error("⚠️ Este medicamento se encuentra agotado (Stock: 0).")
+
+                    if btn_agregar:
+                        med_obj = med_dao.obtener_por_codigo(med_id)
+                        if not med_obj:
+                            st.error("No se pudo cargar el medicamento seleccionado.")
+                        else:
+                            # Validar que la suma acumulada en el carrito no sobrepase el stock
+                            cant_en_carrito = sum(d.cantidad for d in st.session_state.carrito if d.medicamento.codigo == med_obj.codigo)
+                            if cant_en_carrito + cantidad > med_obj.stock:
+                                st.error(f"Stock insuficiente para '{med_obj.nombre}'. Disponible: {med_obj.stock}, ya en carrito: {cant_en_carrito}.")
+                            else:
+                                try:
+                                    detalle = DetalleVenta(med_obj, int(cantidad), float(med_obj.precio_venta))
+                                    st.session_state.carrito.append(detalle)
+                                    st.success(f"Agregado al carrito: {med_obj.nombre} x{cantidad}")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al agregar producto: {e}")
+
+                # 3. Display del Carrito
                 if st.session_state.carrito:
                     st.markdown("##### Detalle del Carrito")
                     requiere_receta = any(getattr(d.medicamento, 'restringido', False) for d in st.session_state.carrito)
@@ -129,45 +157,78 @@ def main():
                         sub = d.calcular_subtotal()
                         total += sub
                         datos_tabla.append({
+                            "N°": idx + 1,
                             "Producto": d.medicamento.nombre,
                             "Cantidad": d.cantidad,
-                            "Precio U.": f"${d.precio_unitario:,.0f}",
-                            "Subtotal": f"${sub:,.0f}",
-                            "Restringido": "Sí" if getattr(d.medicamento, 'restringido', False) else "No"
+                            "Precio U.": f"${d.precio_unitario:,.0f} CLP",
+                            "Subtotal": f"${sub:,.0f} CLP",
+                            "Tipo": "Controlado (Receta)" if getattr(d.medicamento, 'restringido', False) else "Venta Libre"
                         })
                     st.table(datos_tabla)
                     st.markdown(f"### **Total: ${total:,.0f} CLP**")
 
-                    # 3. Receta Médica si aplica
+                    if st.button("🗑️ Vaciar Carrito"):
+                        st.session_state.carrito = []
+                        st.rerun()
+
+                    # 4. Control de Receta Médica y Regla de Químico Farmacéutico
                     num_receta, fecha_receta = None, None
+                    bloquear_por_rol = False
+
                     if requiere_receta:
-                        st.warning("⚠️ El carrito contiene productos controlados. Debe ingresar la Receta Médica.")
-                        num_receta = st.text_input("Número de Receta *")
-                        fecha_receta = st.date_input("Fecha Emisión Receta", value=date.today())
+                        st.warning("⚠️ El carrito contiene productos controlados. Debe ingresar la Receta Médica retenida.")
+                        col_r1, col_r2 = st.columns(2)
+                        with col_r1:
+                            num_receta = st.text_input("Número de Receta *")
+                        with col_r2:
+                            fecha_receta = st.date_input("Fecha Emisión Receta", value=date.today())
 
-                    # 4. Finalizar Venta
-                    if st.button("💾 Confirmar y Procesar Venta"):
-                        cliente = Cliente(client_rut, client_nombre)
-                        receta_obj = RecetaMedica(num_receta, str(fecha_receta)) if requiere_receta and num_receta else None
-                        
-                        venta = Venta(
-                            fecha=str(date.today()),
-                            cliente=cliente,
-                            vendedor_rut=vendedor_rut,
-                            receta_medica=receta_obj
-                        )
-                        for d in st.session_state.carrito:
-                            venta.agregar_detalle(d)
+                        # Verificación estricta de regla de negocio: Rol Químico Farmacéutico
+                        if vendedor_sel is not None and not vendedor_sel.esfarmaceutico:
+                            bloquear_por_rol = True
+                            st.error(
+                                f"⛔ **Operación no autorizada:** El vendedor seleccionado ({vendedor_sel.nombre}) es Vendedor General. "
+                                "Por normativa de farmacia, SOLO un **Químico Farmacéutico** puede aprobar y registrar la venta de medicamentos controlados. "
+                                "Por favor, seleccione un Químico Farmacéutico como vendedor responsable para poder procesar la venta."
+                            )
 
-                        if not venta.validar_venta():
-                            st.error("Error de validación: Verifique RUT del cliente, productos y datos de receta médica si aplica.")
+                    # 5. Finalizar Venta
+                    if st.button("💾 Confirmar y Procesar Venta", disabled=bloquear_por_rol):
+                        if not client_rut.strip() or not client_nombre.strip():
+                            st.error("Por favor complete el RUT y Nombre del cliente.")
+                        elif not vendedor_sel:
+                            st.error("Debe seleccionar un vendedor responsable.")
+                        elif requiere_receta and (not num_receta or not num_receta.strip()):
+                            st.error("Debe ingresar el número de la receta médica para medicamentos controlados.")
                         else:
-                            if venta_dao.guardar_venta(venta, tasa_dolar=valor_dolar):
-                                st.success("¡Venta procesada exitosamente!")
-                                st.session_state.carrito = [] # Limpiar carrito
-                                st.rerun()
-                            else:
-                                st.error("Ocurrió un problema al registrar la venta en la base de datos.")
+                            try:
+                                cliente = Cliente(client_rut.strip(), client_nombre.strip())
+                                receta_obj = RecetaMedica(num_receta.strip(), str(fecha_receta)) if (requiere_receta and num_receta) else None
+                                
+                                venta = Venta(
+                                    fecha=str(date.today()),
+                                    cliente=cliente,
+                                    vendedor=vendedor_sel,
+                                    receta_medica=receta_obj
+                                )
+                                for d in st.session_state.carrito:
+                                    venta.agregar_detalle(d)
+
+                                valido, mensaje_validacion = venta.verificar_reglas()
+                                if not valido:
+                                    st.error(f"Error de validación: {mensaje_validacion}")
+                                else:
+                                    if venta_dao.guardar_venta(venta, tasa_dolar=valor_dolar):
+                                        st.success(f"¡Venta #{venta.id} procesada exitosamente! Se actualizó el inventario de medicamentos.")
+                                        st.session_state.carrito = [] # Limpiar carrito
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Ocurrió un problema al registrar la venta: {venta_dao.ultimo_error}")
+                            except Exception as e:
+                                st.error(f"Error al procesar la venta: {e}")
+
+            elif opcion == "Ver Ventas Realizadas":
+                ver_ventas(conexion)
 
             elif opcion == "Registrar Medicamento":
                 st.subheader("Registro de Medicamento")
